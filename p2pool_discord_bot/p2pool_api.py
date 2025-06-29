@@ -8,7 +8,9 @@ logger = logging.getLogger(__name__)
 # Load P2POOL_API_URL from .env to be self-contained or if used independently
 # In bot.py, this is already loaded, but good practice for a module.
 load_dotenv()
-P2POOL_API_URL = os.getenv("P2POOL_API_URL")
+# P2POOL_API_URL = os.getenv("P2POOL_API_URL") # Deprecated in favor of OBSERVER_API_BASE_URL
+OBSERVER_API_BASE_URL = "https://mini.p2pool.observer/api"
+
 
 # Standard P2Pool API endpoints (these might vary based on the specific P2Pool instance/fork)
 # It's crucial to confirm these with the user or P2Pool documentation.
@@ -27,15 +29,17 @@ async def get_p2pool_sidechain_stats():
     Fetches general sidechain statistics from the P2Pool API.
     This should ideally include information about the latest block.
     """
-    if not P2POOL_API_URL:
-        logger.error("P2POOL_API_URL is not set. Cannot fetch sidechain stats.")
-        return None, "P2POOL_API_URL not configured."
+    # if not P2POOL_API_URL: # Deprecated
+    #     logger.error("P2POOL_API_URL is not set. Cannot fetch sidechain stats.")
+    #     return None, "P2POOL_API_URL not configured."
 
     # Common endpoints: /stats, /pool/stats, /network/stats, /mini/stats
     # User needs to confirm the correct endpoint for their mini pool.
     # Using a placeholder relative path for now.
     # IMPORTANT: This endpoint '/stats' is a guess for mini chain.
-    endpoint = f"{P2POOL_API_URL.rstrip('/')}/stats"
+    # endpoint = f"{P2POOL_API_URL.rstrip('/')}/stats" # Deprecated
+    endpoint = f"{OBSERVER_API_BASE_URL}/pool_info"
+
 
     logger.debug(f"Fetching P2Pool sidechain stats from: {endpoint}")
     try:
@@ -65,9 +69,9 @@ async def get_miner_info(miner_address: str):
     """
     Fetches statistics for a specific miner from the P2Pool API.
     """
-    if not P2POOL_API_URL:
-        logger.error("P2POOL_API_URL is not set. Cannot fetch miner info.")
-        return None, "P2POOL_API_URL not configured."
+    # if not P2POOL_API_URL: # Deprecated
+    #     logger.error("P2POOL_API_URL is not set. Cannot fetch miner info.")
+    #     return None, "P2POOL_API_URL not configured."
     if not miner_address:
         logger.warning("Miner address is empty.")
         return None, "Miner address cannot be empty."
@@ -76,7 +80,9 @@ async def get_miner_info(miner_address: str):
     # The structure of this data can vary significantly.
     # IMPORTANT: This endpoint '/miners/{miner_address}' is a guess.
     # Some pools might not have a direct per-miner endpoint but include miners in a general stats call.
-    endpoint = f"{P2POOL_API_URL.rstrip('/')}/miners/{miner_address}"
+    # endpoint = f"{P2POOL_API_URL.rstrip('/')}/miners/{miner_address}" # Deprecated
+    endpoint = f"{OBSERVER_API_BASE_URL}/miner_info/{miner_address}"
+
 
     logger.debug(f"Fetching P2Pool miner info for {miner_address} from: {endpoint}")
     try:
@@ -110,12 +116,12 @@ if __name__ == '__main__':
 
     async def main():
         print("Testing P2Pool API functions...")
-        if not P2POOL_API_URL:
-            print("P2POOL_API_URL not set in .env. Please set it for testing.")
-            print("Example: P2POOL_API_URL=http://127.0.0.1:9327 (for XMR P2Pool mini)")
-            return
+        # if not P2POOL_API_URL: # Deprecated
+        #     print("P2POOL_API_URL not set in .env. Please set it for testing.")
+        #     print("Example: P2POOL_API_URL=http://127.0.0.1:9327 (for XMR P2Pool mini)")
+        #     return
 
-        print(f"Using API URL: {P2POOL_API_URL}")
+        print(f"Using API URL: {OBSERVER_API_BASE_URL}")
 
         # Test get_p2pool_sidechain_stats
         stats_data, error = await get_p2pool_sidechain_stats()
@@ -166,9 +172,10 @@ if __name__ == '__main__':
     # Ensure you have a .env file in p2pool_discord_bot/ with P2POOL_API_URL (and optionally TEST_MINER_ADDRESS)
     # Or, if running from the root, ensure .env is in the root and paths are adjusted or modules handled.
     # For simplicity, this assumes .env is co-located or picked up by load_dotenv().
-    if P2POOL_API_URL: # Only run main if API URL is present
-        asyncio.run(main())
-    else:
-        print("P2POOL_API_URL not set. Cannot run p2pool_api.py test functions.")
-        print("Please create a .env file in the project root (e.g., p2pool_discord_bot/.env or ./ .env)")
-        print("with P2POOL_API_URL='http://your_p2pool_node_ip:port'")
+    # if P2POOL_API_URL: # Deprecated
+    #     asyncio.run(main())
+    # else:
+    #     print("P2POOL_API_URL not set. Cannot run p2pool_api.py test functions.")
+    #     print("Please create a .env file in the project root (e.g., p2pool_discord_bot/.env or ./ .env)")
+    #     print("with P2POOL_API_URL='http://your_p2pool_node_ip:port'")
+    asyncio.run(main()) # Always try to run main for testing with the new hardcoded base URL
