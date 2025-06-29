@@ -1,3 +1,4 @@
 discord.py>=2.0.0
 requests>=2.25.0
 python-dotenv>=0.15.0
+websockets>=10.0 # Or a more recent compatible version

@@ -4,44 +4,46 @@ This document provides guidance for AI agents working on the P2Pool Discord Bot 
 
 ### Project Overview
 
-The bot monitors a P2Pool mini sidechain (Monero) via its HTTP API. It offers slash commands for users to query miner and block information, and it sends notifications to a designated Discord channel when new blocks are found.
+The bot monitors the P2Pool Mini sidechain (Monero) using the `mini.p2pool.observer` API. It offers slash commands for users to query miner and pool information, and it sends real-time notifications to a designated Discord channel when new blocks are found using a WebSocket connection.
 
 ### Key Technologies
 
 *   **Python 3:** The primary programming language.
 *   **discord.py:** Library for interacting with the Discord API.
-*   **requests:** Library for making HTTP requests to the P2Pool API.
+*   **requests:** Library for making HTTP requests to the P2Pool Observer API.
+*   **websockets:** Library for WebSocket communication for real-time events.
 *   **python-dotenv:** For managing environment variables (API keys, tokens, etc.).
 
 ### File Structure
 
-*   `bot.py`: Main application file containing the bot's logic, event handlers, and command definitions.
-*   `config.py`: Placeholder, but configuration is primarily managed via a `.env` file.
+*   `bot.py`: Main application file containing the bot's logic, event handlers, command definitions, and WebSocket client.
+*   `p2pool_api.py`: Module for handling interactions with the P2Pool Observer HTTP API.
 *   `requirements.txt`: Lists Python package dependencies.
-*   `.env`: (User-created, not in repo) Stores sensitive information like the Discord bot token, P2Pool API URL, and notification channel ID.
+*   `.env`: (User-created, not in repo) Stores sensitive information like the Discord bot token and notification channel ID. The `P2POOL_API_URL` is no longer used for the observer; its base URL is hardcoded in `p2pool_api.py`.
 *   `README.md`: User-facing documentation for setup and usage.
 *   `AGENTS.md`: This file.
 
 ### Development Guidelines
 
 1.  **Configuration:**
-    *   All sensitive data (Discord token, P2Pool API URL, specific channel IDs) MUST be loaded from environment variables using `python-dotenv` and a `.env` file. Do not hardcode these values.
+    *   Sensitive data (Discord token, notification channel ID) MUST be loaded from environment variables using `python-dotenv` and a `.env` file.
+    *   The `P2POOL_API_URL` environment variable is deprecated for observer functionality. The base URL `https://mini.p2pool.observer/api` is now hardcoded in `p2pool_api.py`.
     *   The `.env` file should be listed in `.gitignore`.
-    *   The `config.py` file is largely vestigial; prefer `.env`.
 
-2.  **API Interaction (P2Pool):**
-    *   The P2Pool API endpoint is configurable via the `P2POOL_API_URL` environment variable.
-    *   Implement robust error handling for API requests (e.g., timeouts, connection errors, unexpected response codes).
-    *   Refer to P2Pool API documentation for specific endpoints and data structures. A common base URL might be `http://127.0.0.1:9327/`.
-        *   Miner info: `/miners/<MINER_ADDRESS>` (check if this specific path is correct for the mini pool variant) or often part of a general stats endpoint.
-        *   Sidechain blocks/stats: `/stats` or `/chain` or similar. The exact endpoint for "latest block" needs to be identified. The mini pool might have different endpoints than the main pool.
-    *   **Key information for block notifications:** Block height, timestamp, effort, miner who found it (if available).
+2.  **API Interaction (P2Pool Observer):**
+    *   HTTP API interactions are managed in `p2pool_api.py`.
+        *   Pool Info: `https://mini.p2pool.observer/api/pool_info`
+        *   Miner Info: `https://mini.p2pool.observer/api/miner_info/<ADDRESS>`
+    *   WebSocket API for real-time events: `wss://mini.p2pool.observer/api/events`. This is handled in `bot.py`.
+    *   Implement robust error handling for API requests and WebSocket connections (e.g., timeouts, connection errors, unexpected response codes, reconnection logic for WebSockets).
+    *   Refer to the [P2Pool Observer API Documentation](https://mini.p2pool.observer/api-documentation) for specific endpoints and data structures.
+    *   **Key information for block notifications (from WebSocket):** Event type (`side_block`, `found_block`), block height, timestamp, miner address, difficulty.
 
 3.  **Discord Interaction (discord.py):**
-    *   Use slash commands (`@tree.command`) for user interactions rather than traditional prefix-based commands.
-    *   Ensure necessary intents are enabled when initializing the bot client. For slash commands and basic functionality, default intents are often sufficient, but if message content is ever needed, the `message_content` intent must be explicitly enabled.
-    *   Use embeds for rich message formatting where appropriate (e.g., for displaying miner info or block details).
-    *   Background tasks (`@tasks.loop`) should be used for periodic checks (like new block polling). Ensure these tasks handle exceptions gracefully and don't crash the bot.
+    *   Use slash commands (`@tree.command`) for user interactions.
+    *   Ensure necessary intents are enabled (default intents are currently used).
+    *   Use embeds for rich message formatting.
+    *   The primary mechanism for new block notifications is now the WebSocket listener. The polling task (`check_for_new_blocks`) is kept as a potential fallback but is disabled by default.
 
 4.  **Error Handling & Logging:**
     *   Implement comprehensive error handling throughout the bot.
@@ -64,19 +66,18 @@ The bot monitors a P2Pool mini sidechain (Monero) via its HTTP API. It offers sl
 ### Specific Tasks & Considerations
 
 *   **Slash Command Implementation:**
-    *   `/miner_info [address]`: Fetch and display stats for the given Monero address from the pool.
-    *   `/latest_block`: Fetch and display information about the most recent block found by the pool.
+    *   `/miner_info <miner_address>`: Fetches and displays stats for the given Monero address from the P2Pool Observer API.
+    *   `/latest_block`: Fetches and displays information about the most recent block from the P2Pool Observer API (`/api/pool_info`).
 *   **Block Notification Service:**
-    *   This will be a background task (`tasks.loop`).
-    *   It needs to store the ID/hash of the last known block to detect new ones.
-    *   When a new block is found, format a message and send it to the channel specified by `NOTIFICATION_CHANNEL_ID`.
+    *   Primarily handled by a WebSocket client connecting to `wss://mini.p2pool.observer/api/events`.
+    *   Listens for `side_block` and `found_block` events.
+    *   Formats and sends notifications to the Discord channel specified by `NOTIFICATION_CHANNEL_ID`.
+    *   A polling-based background task (`check_for_new_blocks`) exists as a fallback but is not started by default.
 
 ### What to Ask the User For
 
-*   The exact HTTP API endpoint for their P2Pool **mini** sidechain. (e.g., `http://host:port`)
-*   Specific API paths for:
-    *   Fetching miner statistics (given a miner's address).
-    *   Fetching the latest sidechain block information.
-*   Confirmation of the Discord Channel ID for notifications.
+*   Confirmation of the Discord Bot Token.
+*   Confirmation of the Discord Channel ID for notifications (`NOTIFICATION_CHANNEL_ID` in `.env`).
+*   (No longer needed: P2Pool API URL, as it's now specific to `mini.p2pool.observer` and hardcoded).
 
 Remember to update this `AGENTS.md` if new conventions or critical information emerges during development.
